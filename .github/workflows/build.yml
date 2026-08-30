@@ -16,7 +16,7 @@ jobs:
           zip -r App.ipa Payload
 
       - name: Upload IPA
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: Unsigned-App
           path: App.ipa
