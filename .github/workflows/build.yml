@@ -10,10 +10,14 @@ jobs:
 
       - name: Build App
         run: |
-          xcodebuild -project ComicFlow.xcodeproj -scheme ComicFlow -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO archive -archivePath build/App.xcarchive
-          mkdir -p Payload
-          cp -r build/App.xcarchive/Products/Applications/*.app Payload/
-          zip -r App.ipa Payload
+              xcodebuild -project ComicFlow.xcodeproj -list
+            
+              xcodebuild -project ComicFlow.xcodeproj -target ComicFlow -configuration Release CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO CONFIGURATION_BUILD_DIR="$(pwd)/build" build
+            
+              mkdir -p Payload
+              cp -r build/*.app Payload/
+              zip -r ComicFlow.ipa Payload
+              
 
       - name: Upload IPA
         uses: actions/upload-artifact@v7
