@@ -247,6 +247,41 @@
   }
 }
 
+- (void) loadView {
+  NSString* nibPath = [[NSBundle mainBundle] pathForResource:@"ComicViewController" ofType:@"nib"];
+  if (nibPath) {
+    [super loadView];
+    if (self.view && self.contentView) {
+      return;
+    }
+  }
+  
+  CGRect screenBounds = [[UIScreen mainScreen] bounds];
+  UIView* rootView = [[UIView alloc] initWithFrame:screenBounds];
+  rootView.backgroundColor = [UIColor blackColor];
+  
+  _contentView = [[UIView alloc] initWithFrame:screenBounds];
+  _contentView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  _contentView.backgroundColor = [UIColor blackColor];
+  [rootView addSubview:_contentView];
+  
+  _navigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, screenBounds.size.width, 44)];
+  _navigationBar.barStyle = UIBarStyleBlack;
+  _navigationBar.translucent = NO;
+  _navigationBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleBottomMargin;
+  _navigationBar.delegate = self;
+  [rootView addSubview:_navigationBar];
+  
+  _navigationControl = [[NavigationControl alloc] initWithFrame:CGRectMake(0, screenBounds.size.height - 44, screenBounds.size.width, 44)];
+  _navigationControl.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin;
+  _navigationControl.backgroundColor = [UIColor blackColor];
+  [_navigationControl addTarget:self action:@selector(selectPage:) forControlEvents:UIControlEventValueChanged];
+  [rootView addSubview:_navigationControl];
+  
+  self.view = rootView;
+  [rootView release];
+}
+
 - (void) viewDidLoad {
   [super viewDidLoad];
   

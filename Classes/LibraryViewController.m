@@ -201,6 +201,9 @@ static void __DisplayQueueCallBack(void* info) {
       _currentComic = [[[LibraryConnection mainConnection] fetchObjectOfClass:[Comic class] withSQLRowID:comicID] retain];
     }
     
+    // Ensure library database is initialized before opening display connection
+    [LibraryConnection mainConnection];
+    
 #if __DISPLAY_THUMBNAILS_IN_BACKGROUND__
 #if __STORE_THUMBNAILS_IN_DATABASE__
     _displayConnection = [[LibraryConnection alloc] initWithDatabaseAtPath:[LibraryConnection libraryDatabasePath]];
@@ -233,6 +236,9 @@ static void __DisplayQueueCallBack(void* info) {
 }
 
 - (void) _toggleMenu:(id)sender {
+  if (_menuController == nil) {
+    return;
+  }
   if (_menuController.popoverVisible) {
     [_menuController dismissPopoverAnimated:YES];
     [_updateTimer setFireDate:[NSDate distantFuture]];
@@ -389,6 +395,160 @@ static void __DisplayQueueCallBack(void* info) {
   }
 }
 
+- (void) loadView {
+  NSString* nibPath = [[NSBundle mainBundle] pathForResource:@"LibraryViewController" ofType:@"nib"];
+  if (nibPath) {
+    [super loadView];
+    if (self.view && self.gridView) {
+      return;
+    }
+  }
+  
+  CGRect screenBounds = [[UIScreen mainScreen] bounds];
+  UIView* rootView = [[UIView alloc] initWithFrame:screenBounds];
+  rootView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  rootView.backgroundColor = [UIColor whiteColor];
+  
+  _gridView = [[GridView alloc] initWithFrame:CGRectMake(0, 44, screenBounds.size.width, screenBounds.size.height - 44)];
+  _gridView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  _gridView.backgroundColor = [UIColor clearColor];
+  [rootView addSubview:_gridView];
+  
+  _navigationBar = [[UINavigationBar alloc] initWithFrame:CGRectMake(0, 0, screenBounds.size.width, 44)];
+  _navigationBar.translucent = NO;
+  _navigationBar.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleBottomMargin;
+  _navigationBar.delegate = self;
+  
+  _segmentedControl = [[UISegmentedControl alloc] initWithItems:@[@"By Series", @"By Name", @"By Date", @"By State"]];
+  _segmentedControl.selectedSegmentIndex = 0;
+  _segmentedControl.autoresizingMask = UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin;
+  [_segmentedControl addTarget:self action:@selector(resort:) forControlEvents:UIControlEventValueChanged];
+  
+  UINavigationItem* navItem = [[UINavigationItem alloc] initWithTitle:@"Library"];
+  UIBarButtonItem* leftItem = [[UIBarButtonItem alloc] initWithCustomView:_segmentedControl];
+  navItem.leftBarButtonItem = leftItem;
+  [leftItem release];
+  [_navigationBar pushNavigationItem:navItem animated:NO];
+  [navItem release];
+  
+  [rootView addSubview:_navigationBar];
+  
+  // Menu View (for Popover)
+  _menuView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 640)];
+  _menuView.autoresizingMask = UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin;
+  _menuView.backgroundColor = [UIColor whiteColor];
+  
+  // Dim switch & label
+  UILabel* dimLabel = [[UILabel alloc] initWithFrame:CGRectMake(53, 25, 111, 21)];
+  dimLabel.text = @"Dim Screen";
+  dimLabel.textAlignment = NSTextAlignmentRight;
+  dimLabel.font = [UIFont boldSystemFontOfSize:18];
+  dimLabel.textColor = [UIColor colorWithWhite:0.25 alpha:1.0];
+  [_menuView addSubview:dimLabel];
+  [dimLabel release];
+  
+  _dimmingSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(187, 20, 51, 31)];
+  [_dimmingSwitch addTarget:self action:@selector(toggleDimming:) forControlEvents:UIControlEventValueChanged];
+  [_menuView addSubview:_dimmingSwitch];
+  
+  // Mark read button
+  _markReadButton = [[UIButton buttonWithType:UIButtonTypeRoundedRect] retain];
+  _markReadButton.frame = CGRectMake(10, 86, 300, 34);
+  _markReadButton.titleLabel.font = [UIFont boldSystemFontOfSize:18];
+  [_markReadButton setTitle:@"Mark All Comics Read" forState:UIControlStateNormal];
+  [_markReadButton addTarget:self action:@selector(markAllRead:) forControlEvents:UIControlEventTouchUpInside];
+  [_menuView addSubview:_markReadButton];
+  
+  // Mark new button
+  _markNewButton = [[UIButton buttonWithType:UIButtonTypeRoundedRect] retain];
+  _markNewButton.frame = CGRectMake(10, 128, 300, 34);
+  _markNewButton.titleLabel.font = [UIFont boldSystemFontOfSize:18];
+  [_markNewButton setTitle:@"Mark All Comics New" forState:UIControlStateNormal];
+  [_markNewButton addTarget:self action:@selector(markAllNew:) forControlEvents:UIControlEventTouchUpInside];
+  [_menuView addSubview:_markNewButton];
+  
+  // Update button
+  _updateButton = [[UIButton buttonWithType:UIButtonTypeRoundedRect] retain];
+  _updateButton.frame = CGRectMake(10, 170, 300, 34);
+  _updateButton.titleLabel.font = [UIFont boldSystemFontOfSize:18];
+  [_updateButton setTitle:@"Update Library" forState:UIControlStateNormal];
+  [_updateButton addTarget:self action:@selector(update:) forControlEvents:UIControlEventTouchUpInside];
+  [_menuView addSubview:_updateButton];
+  
+  // Force update button
+  _forceUpdateButton = [[UIButton buttonWithType:UIButtonTypeRoundedRect] retain];
+  _forceUpdateButton.frame = CGRectMake(10, 212, 300, 34);
+  _forceUpdateButton.titleLabel.font = [UIFont boldSystemFontOfSize:18];
+  [_forceUpdateButton setTitle:@"Recreate Library" forState:UIControlStateNormal];
+  [_forceUpdateButton addTarget:self action:@selector(forceUpdate:) forControlEvents:UIControlEventTouchUpInside];
+  [_menuView addSubview:_forceUpdateButton];
+  
+  // Show Log button
+  UIButton* showLogButton = [UIButton buttonWithType:UIButtonTypeRoundedRect];
+  showLogButton.frame = CGRectMake(10, 254, 300, 34);
+  showLogButton.titleLabel.font = [UIFont boldSystemFontOfSize:18];
+  [showLogButton setTitle:@"Show Log" forState:UIControlStateNormal];
+  [showLogButton addTarget:self action:@selector(showLog:) forControlEvents:UIControlEventTouchUpInside];
+  [_menuView addSubview:showLogButton];
+  
+  // Purchase button
+  _purchaseButton = [[UIButton buttonWithType:UIButtonTypeRoundedRect] retain];
+  _purchaseButton.frame = CGRectMake(10, 318, 300, 34);
+  _purchaseButton.titleLabel.font = [UIFont boldSystemFontOfSize:18];
+  [_purchaseButton setTitle:@"Purchase Unlimited Web Server" forState:UIControlStateNormal];
+  [_purchaseButton addTarget:self action:@selector(purchase:) forControlEvents:UIControlEventTouchUpInside];
+  [_menuView addSubview:_purchaseButton];
+  
+  // Restore button
+  _restoreButton = [[UIButton buttonWithType:UIButtonTypeRoundedRect] retain];
+  _restoreButton.frame = CGRectMake(10, 360, 300, 34);
+  _restoreButton.titleLabel.font = [UIFont boldSystemFontOfSize:18];
+  [_restoreButton setTitle:@"Restore Previous Purchase" forState:UIControlStateNormal];
+  [_restoreButton addTarget:self action:@selector(restore:) forControlEvents:UIControlEventTouchUpInside];
+  [_menuView addSubview:_restoreButton];
+  
+  // Web Server header
+  UILabel* serverHeader = [[UILabel alloc] initWithFrame:CGRectMake(44, 424, 233, 22)];
+  serverHeader.text = @"ComicFlow Web Server";
+  serverHeader.textAlignment = NSTextAlignmentCenter;
+  serverHeader.font = [UIFont boldSystemFontOfSize:18];
+  serverHeader.textColor = [UIColor colorWithWhite:0.25 alpha:1.0];
+  [_menuView addSubview:serverHeader];
+  [serverHeader release];
+  
+  // Server control
+  _serverControl = [[UISegmentedControl alloc] initWithItems:@[@"Off", @"Website", @"WebDAV"]];
+  _serverControl.frame = CGRectMake(30, 454, 260, 29);
+  _serverControl.selectedSegmentIndex = 0;
+  [_serverControl addTarget:self action:@selector(updateServer:) forControlEvents:UIControlEventValueChanged];
+  [_menuView addSubview:_serverControl];
+  
+  // Address label
+  _addressLabel = [[UILabel alloc] initWithFrame:CGRectMake(25, 497, 270, 54)];
+  _addressLabel.textAlignment = NSTextAlignmentCenter;
+  _addressLabel.numberOfLines = 3;
+  _addressLabel.font = [UIFont italicSystemFontOfSize:15];
+  _addressLabel.textColor = [UIColor colorWithWhite:0.333 alpha:1.0];
+  [_menuView addSubview:_addressLabel];
+  
+  // Info label
+  _infoLabel = [[UILabel alloc] initWithFrame:CGRectMake(5, 581, 310, 18)];
+  _infoLabel.textAlignment = NSTextAlignmentCenter;
+  _infoLabel.font = [UIFont systemFontOfSize:13];
+  _infoLabel.textColor = [UIColor colorWithWhite:0.333 alpha:1.0];
+  [_menuView addSubview:_infoLabel];
+  
+  // Version label
+  _versionLabel = [[UILabel alloc] initWithFrame:CGRectMake(5, 602, 310, 18)];
+  _versionLabel.textAlignment = NSTextAlignmentCenter;
+  _versionLabel.font = [UIFont systemFontOfSize:13];
+  _versionLabel.textColor = [UIColor colorWithWhite:0.333 alpha:1.0];
+  [_menuView addSubview:_versionLabel];
+  
+  self.view = rootView;
+  [rootView release];
+}
+
 - (void) viewDidLoad {
   [super viewDidLoad];
   
@@ -415,9 +575,11 @@ static void __DisplayQueueCallBack(void* info) {
   
   UIViewController* viewController = [[UIViewController alloc] init];
   viewController.view = _menuView;
-  _menuController = [[UIPopoverController alloc] initWithContentViewController:viewController];
-  _menuController.delegate = self;
-  _menuController.popoverContentSize = _menuView.frame.size;
+  if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+    _menuController = [[UIPopoverController alloc] initWithContentViewController:viewController];
+    _menuController.delegate = self;
+    _menuController.popoverContentSize = _menuView.frame.size;
+  }
   [viewController release];
   
   _infoLabel.text = nil;
@@ -704,7 +866,6 @@ static void __DisplayQueueCallBack(void* info) {
     UIView* launchView = _launchView;
     [UIView animateWithDuration:0.5 animations:^{
       launchView.alpha = 0.0;
-      self.view.frame = [[UIScreen mainScreen] applicationFrame];
     } completion:^(BOOL finished) {
       [launchView removeFromSuperview];
       [launchView release];
@@ -738,9 +899,7 @@ static void __DisplayQueueCallBack(void* info) {
 - (void) viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
   
-  if (_launchView) {
-    [self performSelector:@selector(_viewDidReallyAppear) withObject:nil afterDelay:0.0];  // Work around interface orientation not already set in -viewDidAppear before iOS 6.0 but instead set after -didRotateFromInterfaceOrientation gets called
-  }
+  [self performSelector:@selector(_viewDidReallyAppear) withObject:nil afterDelay:0.0];
   
   [self becomeFirstResponder];
 }

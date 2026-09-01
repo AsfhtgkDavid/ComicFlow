@@ -227,6 +227,13 @@
     XLOG_ERROR(@"Failed setting do-not-backup attribute on \"%@\": %s (%i)", documentsPath, strerror(result), result);
   }
   
+  if (self.window == nil) {
+    self.window = [[[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]] autorelease];
+  } else {
+    self.window.frame = [[UIScreen mainScreen] bounds];
+  }
+  self.window.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  
   // Create root view controller
   NSLog(@"[DEBUG] Before LibraryViewController alloc");
   self.viewController = [[[LibraryViewController alloc] initWithWindow:self.window] autorelease];
@@ -269,17 +276,20 @@
   
   // Show window
   self.window.backgroundColor = nil;
+  self.window.frame = [[UIScreen mainScreen] bounds];
   self.window.rootViewController = self.viewController;
   [self.window makeKeyAndVisible];
   
   // Initialize dimming window
-  _dimmingWindow = [[UIWindow alloc] initWithFrame:([UIScreen instancesRespondToSelector:@selector(nativeBounds)] ? [[UIScreen mainScreen] nativeBounds] : [[UIScreen mainScreen] bounds])];
+  _dimmingWindow = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
   _dimmingWindow.userInteractionEnabled = NO;
   _dimmingWindow.windowLevel = UIWindowLevelStatusBar;
   _dimmingWindow.backgroundColor = [UIColor blackColor];
   _dimmingWindow.alpha = 0.0;
   _dimmingWindow.hidden = YES;
   _dimmingWindow.rootViewController = [[UIViewController alloc] init];
+  _dimmingWindow.rootViewController.view = [[UIView alloc] initWithFrame:_dimmingWindow.bounds];
+  _dimmingWindow.rootViewController.view.backgroundColor = [UIColor clearColor];
   _dimmingWindow.rootViewController.view.hidden = YES;
   if ([[NSUserDefaults standardUserDefaults] boolForKey:kDefaultKey_ScreenDimmed]) {
     [self setScreenDimmed:YES];

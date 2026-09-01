@@ -17,6 +17,7 @@
 #import "Extensions_Foundation.h"
 #import "XLFunctions.h"
 #import "XLDatabaseLogger.h"
+#import "XLStandardLogger.h"
 #if DEBUG
 #import "XLTelnetServerLogger.h"
 #endif
@@ -81,6 +82,7 @@ static ApplicationDelegate* _sharedInstance = nil;
   // Configure logging
   [XLSharedFacility setLogsUncaughtExceptions:YES];
   [XLSharedFacility setLogsInitializedExceptions:YES];
+  [XLSharedFacility addLogger:[XLStandardLogger sharedErrorLogger]];
   _databaseLogger = [[XLDatabaseLogger alloc] init];
   [XLSharedFacility addLogger:_databaseLogger];
 #if DEBUG
@@ -92,8 +94,11 @@ static ApplicationDelegate* _sharedInstance = nil;
   _overlayWindow.screen = [UIScreen mainScreen];
   _overlayWindow.windowLevel = kOverlayWindowLevel;
   _overlayWindow.userInteractionEnabled = NO;
+  _overlayWindow.backgroundColor = [UIColor clearColor];
+  _overlayWindow.hidden = YES;
   _overlayWindow.rootViewController = [[UIViewController alloc] init];
   _overlayWindow.rootViewController.view = [[UIView alloc] initWithFrame:_overlayWindow.bounds];
+  _overlayWindow.rootViewController.view.backgroundColor = [UIColor clearColor];
   
   return NO;
 }
