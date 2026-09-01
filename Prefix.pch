@@ -16,16 +16,26 @@
 #ifdef __OBJC__
   #import <Foundation/Foundation.h>
   #import <UIKit/UIKit.h>
+  #import <QuartzCore/QuartzCore.h>
 #endif
-#import <QuartzCore/QuartzCore.h>
 
 #define __STORE_THUMBNAILS_IN_DATABASE__ 1
 #define __DISPLAY_THUMBNAILS_IN_BACKGROUND__ 1
 
 #ifdef __OBJC__
 #import "XLFacilityMacros.h"
+#import "Logging.h"
 
-#define __COOLIRIS_TOOLKIT_LOGGING__
+#undef LOG_DEBUG
+#undef LOG_INFO
+#undef LOG_VERBOSE
+#undef LOG_WARNING
+#undef LOG_ERROR
+#undef LOG_EXCEPTION
+#undef CHECK
+#undef NOT_REACHED
+#undef DCHECK
+#undef DNOT_REACHED
 
 #define LOG_DEBUG(...) XLOG_DEBUG(__VA_ARGS__)
 #define LOG_INFO(...) XLOG_INFO(__VA_ARGS__)

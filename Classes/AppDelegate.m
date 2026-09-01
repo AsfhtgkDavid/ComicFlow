@@ -212,6 +212,7 @@
 
 - (BOOL) application:(UIApplication*)application didFinishLaunchingWithOptions:(NSDictionary*)launchOptions {
   [super application:application didFinishLaunchingWithOptions:launchOptions];
+  NSLog(@"[DEBUG] Start didFinishLaunching");
   
 #if TARGET_IPHONE_SIMULATOR
   // Log Documents folder path
@@ -227,18 +228,30 @@
   }
   
   // Create root view controller
+  NSLog(@"[DEBUG] Before LibraryViewController alloc");
   self.viewController = [[[LibraryViewController alloc] initWithWindow:self.window] autorelease];
-  
+  NSLog(@"[DEBUG] After LibraryViewController alloc");
   // Initialize updater
   [[LibraryUpdater sharedUpdater] setDelegate:(LibraryViewController*)self.viewController];
   
   // Update library immediately
-  if ([[LibraryConnection mainConnection] countObjectsOfClass:[Comic class]] == 0) {
-    [[LibraryUpdater sharedUpdater] update:YES];
-    [[NSUserDefaults standardUserDefaults] setInteger:kLibraryVersion forKey:kDefaultKey_LibraryVersion];
-  } else {
-    [[LibraryUpdater sharedUpdater] update:NO];
-  }
+  // Уводим тяжелую работу в глобальную параллельную очередь
+  dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+      
+      BOOL isLibraryEmpty = ([[LibraryConnection mainConnection] countObjectsOfClass:[Comic class]] == 0);
+      
+      if (isLibraryEmpty) {
+          [[LibraryUpdater sharedUpdater] update:YES];
+          
+          // Обновление UI и UserDefaults безопасно делать только в главном потоке
+          dispatch_async(dispatch_get_main_queue(), ^{
+              [[NSUserDefaults standardUserDefaults] setInteger:kLibraryVersion forKey:kDefaultKey_LibraryVersion];
+          });
+      } else {
+          [[LibraryUpdater sharedUpdater] update:NO];
+      }
+  });
+  NSLog(@"[DEBUG] After LibraryInit alloc");
   
   // Initialize update timer
   _updateTimer = [[NSTimer alloc] initWithFireDate:[NSDate distantFuture]
@@ -248,9 +261,11 @@
                                           userInfo:nil
                                            repeats:YES];
   [[NSRunLoop currentRunLoop] addTimer:_updateTimer forMode:NSRunLoopCommonModes];
+  NSLog(@"[DEBUG] After TimerInit alloc");
   
   // Initialize web server
   [[WebServer sharedWebServer] setDelegate:self];
+  NSLog(@"[DEBUG] After WebserverInit alloc");
   
   // Show window
   self.window.backgroundColor = nil;

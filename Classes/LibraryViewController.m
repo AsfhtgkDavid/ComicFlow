@@ -215,9 +215,6 @@ static void __DisplayQueueCallBack(void* info) {
     CFRunLoopSourceContext context = {0, self, NULL, NULL, NULL, NULL, NULL, NULL, NULL, __DisplayQueueCallBack};
     _displaySource = CFRunLoopSourceCreate(kCFAllocatorDefault, 0, &context);
     [NSThread detachNewThreadSelector:@selector(_displayQueueThread:) toTarget:self withObject:nil];
-    do {
-      usleep(100000);  // Make sure background thread has started
-    } while (_displayRunLoop == NULL);
 #endif
   }
   return self;
@@ -626,7 +623,11 @@ static void __DisplayQueueCallBack(void* info) {
   
   if (_gridView.empty) {
     [_gridView layoutSubviews];
-    [self _setCurrentCollection:_currentCollection];
+    
+    // Даем UIKit завершить отрисовку кадра, отложив SQL-запросы на долю секунды
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self _setCurrentCollection:_currentCollection];
+    });
   }
 
   // Launch screens are used on iOS 8 and later
@@ -918,7 +919,9 @@ static void __ArrayApplierFunction(const void* value, void* context) {
   
   if (signal) {
     CFRunLoopSourceSignal(_displaySource);
-    CFRunLoopWakeUp(_displayRunLoop);
+    if (_displayRunLoop != NULL) { // Защитная проверка
+        CFRunLoopWakeUp(_displayRunLoop);
+    }
   }
 }
 

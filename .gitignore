@@ -1,3 +1,16 @@
 .DS_Store
 xcuserdata
 project.xcworkspace
+.bootstrap
+._*
+sdks/*
+toolchain/*
+include/*
+lib/*
+templates/*
+mod/*
+!*/.keep
+.theos/
+packages/
+obj/
+

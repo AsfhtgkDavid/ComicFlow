@@ -1,0 +1,8 @@
+Package: net.pol-online.comicflow
+Name: ComicFlow
+Version: 0.0.1
+Architecture: iphoneos-arm
+Description: An awesome application!
+Maintainer: Pol-Online
+Author: Pol-Online
+Section: Utilities
